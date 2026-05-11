@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Savings Tracker</title>
+
+<!-- PWA / iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Savings" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#080810" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+
+<style>
+:root {
+  --bg: #080810;
+  --card: #0f0f1a;
+  --border: #1c1c2e;
+  --green: #4ade80;
+  --green-dark: #166534;
+  --red: #f87171;
+  --blue: #818cf8;
+  --gold: #c9b458;
+  --muted: #3a3a5c;
+  --text: #e2e2f0;
+  --sub: #5a5a90;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  overscroll-behavior: none;
+}
+
+/* Noise texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0;
+}
+
+.app {
+  position: relative; z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: calc(var(--safe-top) + 24px) 16px calc(var(--safe-bot) + 40px);
+  min-height: 100dvh;
+}
+
+/* ─── Header ─── */
+.header { text-align: center; margin-bottom: 28px; }
+.header h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px; font-weight: 800;
+  letter-spacing: -1px; color: #fff;
+}
+.header .sub {
+  font-size: 10px; color: var(--muted);
+  letter-spacing: 2px; margin-top: 5px;
+}
+
+/* ─── Cards ─── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 20px;
+  margin-bottom: 12px;
+  transition: background 0.4s ease;
+}
+.card.flash-add { animation: fAdd 0.5s ease; }
+.card.flash-sub { animation: fSub 0.5s ease; }
+@keyframes fAdd { 40% { background: #091e12; border-color: #1a4a2e; } }
+@keyframes fSub { 40% { background: #1e0909; border-color: #4a1a1a; } }
+
+/* ─── Progress ─── */
+.prog-row { display: flex; justify-content: space-between; margin-bottom: 9px; font-size: 10px; color: var(--sub); letter-spacing: 1.5px; }
+.prog-track { height: 5px; background: #15152a; border-radius: 3px; overflow: hidden; margin-bottom: 22px; }
+.prog-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #155d33, #4ade80);
+  width: 0%; transition: width 1s cubic-bezier(.23,1,.32,1);
+}
+
+/* ─── Stats grid ─── */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 18px; }
+.stat {
+  background: #080813;
+  border: 1px solid #13132a;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.stat-label { font-size: 9px; color: var(--sub); letter-spacing: 1.5px; margin-bottom: 5px; }
+.stat-val { font-size: 13px; font-weight: 500; line-height: 1.3; }
+.c-green { color: var(--green); }
+.c-red   { color: var(--red); }
+.c-blue  { color: var(--blue); }
+.c-muted { color: var(--muted); }
+
+/* ─── Tip ─── */
+.tip {
+  font-size: 11px; color: var(--sub); line-height: 1.75;
+  padding: 11px 14px;
+  background: #080813;
+  border-radius: 10px;
+  border-left: 2px solid #22226e;
+  margin-bottom: 18px;
+}
+
+/* ─── Input ─── */
+.input-row { display: flex; gap: 8px; }
+.cmd-input {
+  flex: 1;
+  background: #080813;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 13px 16px;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 15px;
+  -webkit-appearance: none;
+  transition: border-color 0.2s;
+}
+.cmd-input:focus { outline: none; border-color: #38388e; }
+.cmd-input::placeholder { color: var(--muted); }
+.cmd-btn {
+  background: #14143a;
+  border: 1px solid #26266e;
+  border-radius: 12px;
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px; font-weight: 500;
+  padding: 13px 20px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.cmd-btn:active { background: #20205a; }
+
+/* ─── Error feedback ─── */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%,60%  { transform: translateX(-6px); }
+  40%,80%  { transform: translateX(6px); }
+}
+.shake { animation: shake 0.35s ease; }
+
+/* ─── Milestones ─── */
+.milestones { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.milestone {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px 16px;
+  font-size: 11px; color: var(--sub);
+}
+.ms-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+.ms-days { margin-left: auto; color: var(--gold); font-weight: 500; }
+.ms-done { color: var(--green); }
+
+/* ─── Quick amounts ─── */
+.quick-card { padding: 16px 20px; }
+.quick-title { font-size: 9px; color: var(--muted); letter-spacing: 2px; margin-bottom: 12px; }
+.quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.quick-btn {
+  background: #080813; border: 1px solid #13132a;
+  border-radius: 10px; padding: 10px 6px;
+  text-align: center; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; cursor: pointer;
+  transition: all 0.15s; -webkit-appearance: none;
+  color: var(--sub);
+}
+.quick-btn:active { background: #10102a; border-color: #26266e; color: var(--blue); transform: scale(0.96); }
+.quick-btn .q-sign { font-size: 13px; font-weight: 500; display: block; margin-bottom: 2px; }
+.quick-btn.q-add .q-sign { color: var(--green); }
+.quick-btn.q-sub .q-sign { color: var(--red); }
+
+/* ─── Log ─── */
+.log-card { padding: 18px 20px; }
+.log-title { font-size: 9px; color: var(--muted); letter-spacing: 2px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+.log-clear { color: #2a2a50; font-size: 10px; cursor: pointer; letter-spacing: 1px; padding: 4px 8px; border: 1px solid #1a1a3a; border-radius: 6px; background: none; font-family: inherit; }
+.log-clear:active { color: var(--red); border-color: var(--red); }
+.log-entry {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #0c0c18;
+  font-size: 12px;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-amount { font-weight: 500; }
+.log-note { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.log-date { color: var(--muted); font-size: 10px; flex-shrink: 0; margin-left: 8px; }
+
+/* ─── Reset ─── */
+.reset-area { text-align: center; margin-top: 8px; }
+.reset-btn {
+  background: none; border: none;
+  color: #252540; font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 2px;
+  cursor: pointer; padding: 8px;
+}
+.reset-btn:active { color: var(--red); }
+
+/* ─── Footer ─── */
+.footer { text-align: center; margin-top: 20px; font-size: 9px; color: #1c1c38; letter-spacing: 2px; }
+
+/* ─── Toast ─── */
+.toast {
+  position: fixed; bottom: calc(var(--safe-bot) + 24px); left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1a1a30; border: 1px solid #2a2a50;
+  border-radius: 10px; padding: 10px 18px;
+  font-size: 12px; color: var(--text);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  white-space: nowrap; z-index: 100;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── Intro animation ─── */
+.app > * { opacity: 0; animation: fadeUp 0.5s ease forwards; }
+.app > *:nth-child(1) { animation-delay: 0.05s; }
+.app > *:nth-child(2) { animation-delay: 0.12s; }
+.app > *:nth-child(3) { animation-delay: 0.19s; }
+.app > *:nth-child(4) { animation-delay: 0.26s; }
+.app > *:nth-child(5) { animation-delay: 0.33s; }
+.app > *:nth-child(6) { animation-delay: 0.38s; }
+.app > *:nth-child(7) { animation-delay: 0.43s; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1>SAVINGS TRACKER</h1>
+    <div class="sub">IPHONE 15 PRO 512GB · AIRPODS</div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card" id="mainCard">
+    <div class="prog-row">
+      <span>TIẾN ĐỘ</span>
+      <span id="pct">0.0%</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="fill"></div></div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">ĐÃ CÓ</div>
+        <div class="stat-val c-green" id="sSaved">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">ĐÃ CHI</div>
+        <div class="stat-val c-red" id="sSpent">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">CÒN LẠI</div>
+        <div class="stat-val c-blue" id="sRemain">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">MỤC TIÊU</div>
+        <div class="stat-val c-muted">33,000,000đ</div>
+      </div>
+    </div>
+
+    <div class="tip" id="tipBox">💡</div>
+
+    <div class="input-row">
+      <input class="cmd-input" id="cmdInput" type="text" inputmode="text"
+             placeholder="+500000 hoặc -200000" autocomplete="off" autocorrect="off" />
+      <button class="cmd-btn" onclick="submit()">OK</button>
+    </div>
+  </div>
+
+  <!-- Quick amounts -->
+  <div class="card quick-card">
+    <div class="quick-title">NHẬP NHANH</div>
+    <div class="quick-grid" id="quickGrid"></div>
+  </div>
+
+  <!-- Milestones -->
+  <div class="milestones">
+    <div class="milestone">
+      <div class="ms-dot"></div>
+      <span>Tết 2027 · +4,000,000đ</span>
+      <span class="ms-days" id="d2027">—</span>
+    </div>
+    <div class="milestone">
+      <div class="ms-dot" style="opacity:.45"></div>
+      <span>Tết 2028 · +4,000,000đ</span>
+      <span class="ms-days" id="d2028">—</span>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card log-card" id="logCard" style="display:none">
+    <div class="log-title">
+      LỊCH SỬ
+      <button class="log-clear" onclick="clearLog()">XÓA</button>
+    </div>
+    <div id="logList"></div>
+  </div>
+
+  <div class="reset-area">
+    <button class="reset-btn" onclick="resetAll()">RESET TẤT CẢ</button>
+  </div>
+
+  <div class="footer">BẮT ĐẦU 21/05/2026 · LƯU TỰ ĐỘNG</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Constants ───
+const GOAL = 33000000;
+const INIT = { saved: 5810, spent: 0, log: [], tipIdx: 0 };
+const KEY  = 'svt_v3';
+
+const TIPS = [
+  "Mỗi ngày không mua trà sữa = ~50k. 1 tháng = 1.5 triệu thẳng vào đây.",
+  "Trước khi mua bất cứ thứ gì, hỏi: 'Mình có thực sự cần không?'",
+  "Tự nấu ăn 1 bữa/ngày thay vì mua ngoài — tiết kiệm 1–2 triệu/tháng.",
+  "Chuyển ngay tiền tiết kiệm sang tài khoản riêng, không để lẫn.",
+  "Xem lại các subscription đang trả — cắt cái không cần thiết.",
+  "Tắt thông báo app mua sắm. Ít nhìn = ít thèm mua.",
+  "Đặt mục tiêu nhỏ hàng tuần thay vì chỉ nhìn con số 33 triệu.",
+  "Mỗi lần 'suýt' mua thứ không cần, chuyển số đó vào đây luôn.",
+  "Tiền Tết là khoản thưởng lớn — chuyển vào tiết kiệm TRƯỚC khi xài.",
+  "Kỷ luật tài chính không phải nhịn — là biết ưu tiên đúng thứ.",
+  "So sánh giá trước khi mua. 30 phút research = tiết kiệm vài trăm nghìn.",
+  "Review chi tiêu mỗi cuối tháng — nhìn thấy tiền đi đâu mới kiểm soát được.",
+];
+
+const QUICK = [
+  { label: '+100k',  val: +100000 },
+  { label: '+200k',  val: +200000 },
+  { label: '+500k',  val: +500000 },
+  { label: '+1M',    val: +1000000 },
+  { label: '-50k',   val: -50000 },
+  { label: '-100k',  val: -100000 },
+];
+
+// ─── State ───
+let S = load();
+
+function load() {
+  try { return { ...INIT, ...JSON.parse(localStorage.getItem(KEY)) }; } catch {}
+  return { ...INIT };
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+
+// ─── Format ───
+function fmt(n) { return Math.abs(n).toLocaleString('vi-VN') + 'đ'; }
+function today() { return new Date().toLocaleDateString('vi-VN'); }
+function daysUntil(y, m, d) {
+  const now = new Date(); now.setHours(0,0,0,0);
+  return Math.ceil((new Date(y, m-1, d) - now) / 86400000);
+}
+
+// ─── Render ───
+function render() {
+  const pct = Math.min(S.saved / GOAL * 100, 100);
+  document.getElementById('pct').textContent    = pct.toFixed(1) + '%';
+  document.getElementById('fill').style.width   = pct + '%';
+  document.getElementById('sSaved').textContent  = fmt(S.saved);
+  document.getElementById('sSpent').textContent  = fmt(S.spent);
+  document.getElementById('sRemain').textContent = fmt(Math.max(0, GOAL - S.saved));
+  document.getElementById('tipBox').textContent  = '💡 ' + TIPS[S.tipIdx % TIPS.length];
+
+  // Milestones
+  const d1 = daysUntil(2027, 1, 29);
+  const d2 = daysUntil(2028, 2, 17);
+  const el1 = document.getElementById('d2027');
+  const el2 = document.getElementById('d2028');
+  el1.textContent = d1 > 0 ? d1 + ' ngày' : '✓ Đã qua';
+  el2.textContent = d2 > 0 ? d2 + ' ngày' : '✓ Đã qua';
+  el1.className = d1 <= 0 ? 'ms-days ms-done' : 'ms-days';
+  el2.className = d2 <= 0 ? 'ms-days ms-done' : 'ms-days';
+
+  // Log
+  const logCard = document.getElementById('logCard');
+  const logList = document.getElementById('logList');
+  if (S.log.length) {
+    logCard.style.display = 'block';
+    logList.innerHTML = S.log.slice(0, 20).map(e => `
+      <div class="log-entry">
+        <div>
+          <div class="log-amount" style="color:${e.type==='add'?'var(--green)':'var(--red)'}">${e.type==='add'?'+':'-'}${fmt(e.val)}</div>
+          ${e.note ? `<div class="log-note">${e.note}</div>` : ''}
+        </div>
+        <div class="log-date">${e.date}</div>
+      </div>`).join('');
+  } else {
+    logCard.style.display = 'none';
+  }
+}
+
+// ─── Quick buttons ───
+function buildQuick() {
+  const g = document.getElementById('quickGrid');
+  g.innerHTML = QUICK.map((q,i) => `
+    <button class="quick-btn ${q.val>0?'q-add':'q-sub'}" onclick="applyQuick(${i})">
+      <span class="q-sign">${q.label}</span>
+    </button>`).join('');
+}
+
+function applyQuick(i) {
+  const q = QUICK[i];
+  apply(q.val > 0 ? '+' : '-', Math.abs(q.val), '');
+}
+
+// ─── Core apply ───
+function apply(sign, val, note) {
+  const nextTip = (S.tipIdx + 1 + Math.floor(Math.random() * (TIPS.length - 1))) % TIPS.length;
+  S.tipIdx = nextTip;
+
+  const entry = { type: sign === '+' ? 'add' : 'sub', val, note, date: today() };
+
+  if (sign === '+') {
+    S.saved += val;
+    flashCard('add');
+    showToast(`+${fmt(val)} đã được cộng vào`);
+  } else {
+    S.saved = Math.max(0, S.saved - val);
+    S.spent += val;
+    flashCard('sub');
+    showToast(`-${fmt(val)} đã được trừ`);
+  }
+
+  S.log = [entry, ...S.log].slice(0, 50);
+  save();
+  render();
+}
+
+// ─── Submit from input ───
+function submit() {
+  const el  = document.getElementById('cmdInput');
+  const raw = el.value.trim().replace(/,/g, '').replace(/\./g, '');
+  const m   = raw.match(/^([+\-])(\d+)(?:\s+(.+))?$/);
+
+  if (!m || parseInt(m[2]) <= 0) {
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+    el.value = '';
+    return;
+  }
+
+  apply(m[1], parseInt(m[2]), m[3] || '');
+  el.value = '';
+  el.blur();
+}
+
+// ─── Flash ───
+function flashCard(type) {
+  const c = document.getElementById('mainCard');
+  c.classList.remove('flash-add', 'flash-sub');
+  void c.offsetWidth;
+  c.classList.add('flash-' + type);
+}
+
+// ─── Toast ───
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── Clear log ───
+function clearLog() {
+  if (!confirm('Xóa toàn bộ lịch sử?')) return;
+  S.log = [];
+  save();
+  render();
+}
+
+// ─── Reset all ───
+function resetAll() {
+  if (!confirm('Reset tất cả về 0? Không thể hoàn tác.')) return;
+  S = { ...INIT };
+  save();
+  render();
+  showToast('Đã reset về ban đầu');
+}
+
+// ─── Enter key ───
+document.getElementById('cmdInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submit(); }
+});
+
+// ─── Service Worker ───
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+// ─── Init ───
+buildQuick();
+render();
+</script>
+</body>
+</html>
